@@ -1,0 +1,262 @@
+Follow official blog: https://www.centos.org/docs/5/html/Deployment_Guide-en-US/ch-kerberos.html
+For reference: http://www.thegeekstuff.com/2014/05/install-kerberos-server/
+
+## ON SERVER NODE
+
+[ec2-user@ip-172-31-42-210 ~]$ sudo yum install krb5-libs krb5-server krb5-workstation -y
+Loaded plugins: amazon-id, rhui-lb, search-disabled-repos, security
+Setting up Install Process
+cloudera-manager                                                                                                                      |  951 B     00:00
+mysql-connectors-community                                                                                                            | 2.5 kB     00:00
+mysql-tools-community                                                                                                                 | 2.5 kB     00:00
+mysql55-community                                                                                                                     | 2.5 kB     00:00
+mysql55-community-source                                                                                                              | 2.4 kB     00:00
+rhui-REGION-client-config-server-6                                                                                                    | 2.9 kB     00:00
+rhui-REGION-rhel-server-releases                                                                                                      | 3.5 kB     00:00
+rhui-REGION-rhel-server-rh-common                                                                                                     | 3.8 kB     00:00
+Resolving Dependencies
+--> Running transaction check
+---> Package krb5-server.x86_64 0:1.10.3-65.el6 will be installed
+--> Finished Dependency Resolution
+
+Dependencies Resolved
+
+=============================================================================================================================================================
+ Package                          Arch                        Version                            Repository                                             Size
+=============================================================================================================================================================
+Installing:
+ krb5-server                      x86_64                      1.10.3-65.el6                      rhui-REGION-rhel-server-releases                      2.0 M
+
+Transaction Summary
+=============================================================================================================================================================
+Install       1 Package(s)
+
+Total download size: 2.0 M
+Installed size: 2.9 M
+Is this ok [y/N]: y
+Downloading Packages:
+krb5-server-1.10.3-65.el6.x86_64.rpm                                                                                                  | 2.0 MB     00:00
+Running rpm_check_debug
+Running Transaction Test
+Transaction Test Succeeded
+Running Transaction
+  Installing : krb5-server-1.10.3-65.el6.x86_64                                                                                                          1/1
+  Verifying  : krb5-server-1.10.3-65.el6.x86_64                                                                                                          1/1
+
+Installed:
+  krb5-server.x86_64 0:1.10.3-65.el6
+
+Complete!
+
+//////////////////////////////////////////////
+
+
+[ec2-user@ip-172-31-42-210 ~]$ cat /etc/krb5.conf
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ default_realm = US-WEST-2.COMPUTE.INTERNAL
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+
+[realms]
+ US-WEST-2.COMPUTE.INTERNAL = {
+  kdc = ip-172-31-1-94.us-west-2.compute.internal
+  admin_server = ip-172-31-1-94.us-west-2.compute.internal
+ }
+
+[domain_realm]
+ .us-west-2.compute.internal = US-WEST-2.COMPUTE.INTERNAL
+ us-west-2.compute.internal = US-WEST-2.COMPUTE.INTERNAL
+
+ 
+ ////////////////////////////////////////////////
+ 
+ [ec2-user@ip-172-31-42-210 ~]$ sudo cat /var/kerberos/krb5kdc/kdc.conf
+[kdcdefaults]
+ kdc_ports = 88
+ kdc_tcp_ports = 88
+
+[realms]
+ US-WEST-2.COMPUTE.INTERNAL = {
+  #master_key_type = aes256-cts
+  acl_file = /var/kerberos/krb5kdc/kadm5.acl
+  dict_file = /usr/share/dict/words
+  admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+  supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+ }
+
+ 
+ ///////////////////////////////////////////////////
+ 
+ 
+ [ec2-user@ip-172-31-42-210 ~]$ sudo cat /var/kerberos/krb5kdc/kadm5.acl
+*/admin@US-WEST-2.COMPUTE.INTERNAL      *
+
+
+
+////////////////////////////////////////////////////
+
+## to distroy database: kdb5_util destroy ##
+
+
+[root@ip-172-31-42-210 ~]#  sudo /usr/sbin/kdb5_util create -s
+Loading random data
+Initializing database '/var/kerberos/krb5kdc/principal' for realm 'US-WEST-2.COMPUTE.INTERNAL',
+master key name 'K/M@US-WEST-2.COMPUTE.INTERNAL'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.
+Enter KDC database master key:
+Re-enter KDC database master key to verify:
+[root@ip-172-31-42-210 ~]#
+
+
+/////////////////////////////////////
+
+
+
+[ec2-user@ip-172-31-42-210 krb5kdc]$ sudo service krb5kdc start
+Starting Kerberos 5 KDC:                                   [  OK  ]
+
+[ec2-user@ip-172-31-42-210 krb5kdc]$ sudo service kadmin start
+Starting Kerberos 5 Admin Server:                          [  OK  ]
+[ec2-user@ip-172-31-42-210 krb5kdc]$
+
+/////////////////////////////
+
+[root@ip-172-31-14-158 ~]# kadmin.local
+Authenticating as principal root/admin@US-WEST-2.COMPUTE.INTERNAL with password.
+kadmin.local:  addprinc root/admin
+WARNING: no policy specified for root/admin@US-WEST-2.COMPUTE.INTERNAL; defaulting to no policy
+Enter password for principal "root/admin@US-WEST-2.COMPUTE.INTERNAL":
+Re-enter password for principal "root/admin@US-WEST-2.COMPUTE.INTERNAL":
+Principal "root/admin@US-WEST-2.COMPUTE.INTERNAL" created.
+kadmin.local:  addprinc ec2-user
+WARNING: no policy specified for ec2-user@US-WEST-2.COMPUTE.INTERNAL; defaulting to no policy
+Enter password for principal "ec2-user@US-WEST-2.COMPUTE.INTERNAL":
+Re-enter password for principal "ec2-user@US-WEST-2.COMPUTE.INTERNAL":
+Principal "ec2-user@US-WEST-2.COMPUTE.INTERNAL" created.
+kadmin.local:  addprinc -randkey host/ip-172-31-14-158.us-west-2.compute.internal
+WARNING: no policy specified for host/ip-172-31-14-158.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL; defaulting to no policy
+Principal "host/ip-172-31-14-158.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL" created.
+kadmin.local:  ktadd host/ip-172-31-14-158.us-west-2.compute.internal
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type des3-cbc-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type arcfour-hmac added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type des-hmac-sha1 added to keytab FILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-14-158.us-west-2.compute.internal with kvno 2, encryption type des-cbc-md5 added to keytab FILE:/etc/krb5.keytab.
+kadmin.local:  quit
+
+
+////////////////////////////
+
+[root@ip-172-31-14-158 ~]# su - ec2-user
+[ec2-user@ip-172-31-14-158 ~]$ kinit
+Password for ec2-user@US-WEST-2.COMPUTE.INTERNAL:
+[ec2-user@ip-172-31-14-158 ~]$ klist
+Ticket cache: FILE:/tmp/krb5cc_500
+Default principal: ec2-user@US-WEST-2.COMPUTE.INTERNAL
+
+Valid starting     Expires            Service principal
+06/29/17 04:23:42  06/30/17 04:23:42  krbtgt/US-WEST-2.COMPUTE.INTERNAL@US-WEST-2.COMPUTE.INTERNAL
+        renew until 06/29/17 04:23:42
+[ec2-user@ip-172-31-14-158 ~]$
+
+
+/////////////////////////////
+
+CLIENT CONFIGURATION
+--------------------
+
+
+[ec2-user@ip-172-31-34-97 ~]$ sudo yum install krb5-libs krb5-workstation -y
+Loaded plugins: amazon-id, rhui-lb, search-disabled-repos, security
+Setting up Install Process
+cloudera-manager                                                                                                                      |  951 B	00:00
+mysql-connectors-community                                                                                                            | 2.5 kB  00:00
+mysql-tools-community                                                                                                                 | 2.5 kB  00:00
+mysql55-community                                                                                                                     | 2.5 kB  00:00
+mysql55-community-source                                                                                                              | 2.4 kB  00:00
+rhui-REGION-client-config-server-6                                                                                                    | 2.9 kB  00:00
+rhui-REGION-rhel-server-releases                                                                                                      | 3.5 kB  00:00
+rhui-REGION-rhel-server-rh-common                                                                                                     | 3.8 kB  00:00
+Package krb5-libs-1.10.3-65.el6.x86_64 already installed and latest version
+Package krb5-workstation-1.10.3-65.el6.x86_64 already installed and latest version
+Nothing to do
+
+
+////////////////////////////
+
+ON SERVER
+
+as root withon kadmin
+
+[ec2-user@ip-172-31-42-210 krb5kdc]$ addprinc -randkey host/clientaddress
+Authenticating as principal root/admin@US-WEST-2.COMPUTE.INTERNAL with password.
+WARNING: no policy specified for host/ip-172-31-34-97.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL; defaulting to no policy
+Enter password for principal "host/ip-172-31-34-97.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL":
+Re-enter password for principal "host/ip-172-31-34-97.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL":
+Principal "host/ip-172-31-34-97.us-west-2.compute.internal@US-WEST-2.COMPUTE.INTERNAL" created.
+[ec2-user@ip-172-31-42-210 krb5kdc]$
+
+
+
+/////////////////////////////////
+
+ON CLIENT
+
+[ec2-user@ip-172-31-42-210 krb5kdc]$ kadmin
+
+	kadmin:  ktadd host/clientadd
+
+	Authenticating as principal root/admin@US-WEST-2.COMPUTE.INTERNAL with password.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type aes128-cts-hmac-sha1-96 added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type des3-cbc-sha1 added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type arcfour-hmac added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type des-hmac-sha1 added to keytab WRFILE:/etc/krb5.keytab.
+Entry for principal host/ip-172-31-34-97.us-west-2.compute.internal with kvno 2, encryption type des-cbc-md5 added to keytab WRFILE:/etc/krb5.keytab.
+[ec2-user@ip-172-31-42-210 krb5kdc]$
+
+
+
+//////////////////////////////////
+
+
+
+kadmin:  quit
+[root@ip-172-31-11-25 ~]# su - ec2-user
+[ec2-user@ip-172-31-11-25 ~]$ kinit
+Password for ec2-user@US-WEST-2.COMPUTE.INTERNAL:
+[ec2-user@ip-172-31-11-25 ~]$ klist
+Ticket cache: FILE:/tmp/krb5cc_500
+Default principal: ec2-user@US-WEST-2.COMPUTE.INTERNAL
+
+Valid starting     Expires            Service principal
+06/29/17 05:19:41  06/30/17 05:19:40  krbtgt/US-WEST-2.COMPUTE.INTERNAL@US-WEST-2.COMPUTE.INTERNAL
+        renew until 06/29/17 05:19:41
+		
+		
+### Testing 
+	
+This should be login without asking password. 	
+		
+[ec2-user@ip-172-31-11-25 ~]$ ssh ip-172-31-1-94.us-west-2.compute.internal
+The authenticity of host 'ip-172-31-1-94.us-west-2.compute.internal (172.31.1.94)' can't be established.
+RSA key fingerprint is 7f:be:0d:37:16:e7:65:1b:77:92:83:98:a8:2d:a0:06.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'ip-172-31-1-94.us-west-2.compute.internal,172.31.1.94' (RSA) to the list of known hosts.
+Last login: Thu Jun 29 05:11:28 2017 from p2e5c5631.dip0.t-ipconnect.de
+[ec2-user@ip-172-31-1-94 ~]$
+
+
+
+https://www.cloudera.com/documentation/enterprise/5-6-x/topics/cm_sg_s4_kerb_wizard.html
+

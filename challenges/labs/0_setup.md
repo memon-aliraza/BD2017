@@ -1,4 +1,4 @@
-## Challenge Setup - 
+## Challenge Setup 
 
 
 ### Linux accounts
